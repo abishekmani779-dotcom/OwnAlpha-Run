@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        const loader = new GLTFLoader();
+        loader.load('public/models/Indian Car Simulator Traffic Car Pack.glb', function (gltf) {
+            let info = [];
+            gltf.scene.traverse(function(child) {
+                if (child.isMesh) {
+                    const box = new THREE.Box3().setFromObject(child);
+                    const size = box.getSize(new THREE.Vector3());
+                    if (size.length() > 0.5) { // filter out tiny screws/lights
+                        info.push({name: child.name, type: child.type, sizeX: size.x.toFixed(2), sizeY: size.y.toFixed(2), sizeZ: size.z.toFixed(2)});
+                    }
+                } else if (child.isGroup || child.isObject3D) {
+                    const count = child.children.filter(c => c.isMesh).length;
+                    if (count > 0) {
+                        const box = new THREE.Box3().setFromObject(child);
+                        const size = box.getSize(new THREE.Vector3());
+                        if (size.length() > 1.0) {
+                            info.push({name: child.name, type: 'Group', children: count, sizeX: size.x.toFixed(2), sizeY: size.y.toFixed(2), sizeZ: size.z.toFixed(2)});
+                        }
+                    }
+                }
+            });
+            console.log(JSON.stringify(info, null, 2));
+            document.body.innerHTML = "<pre>" + JSON.stringify(info, null, 2) + "</pre>";
+        });
+    </script>
+</body>
+</html>

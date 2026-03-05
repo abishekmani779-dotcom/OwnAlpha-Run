@@ -75,6 +75,10 @@ const AudioEngine = {
     playSlide() { this.playTone(150, 50, 'square', 0.2, 0.05); },
     playShift() { this.playTone(500, 200, 'triangle', 0.1, 0.05); },
     playMilestone() { this.playTone(400, 800, 'sine', 0.5, 0.2); setTimeout(() => this.playTone(800, 1200, 'sine', 0.5, 0.2), 300); },
+    playHit() { this.playTone(150, 50, 'sawtooth', 0.4, 0.3); },
+    playGameOver() { this.playTone(300, 50, 'sawtooth', 0.8, 0.3); setTimeout(() => this.playTone(200, 30, 'sawtooth', 1.0, 0.4), 400); },
+    playMagnet() { this.playTone(600, 900, 'sine', 0.3, 0.1); setTimeout(() => this.playTone(900, 1200, 'sine', 0.3, 0.1), 150); },
+    playShield() { this.playTone(800, 1000, 'square', 0.2, 0.1); setTimeout(() => this.playTone(1000, 1200, 'square', 0.2, 0.1), 100); },
     tick(dt, speedLevel, isKillerVisible, killerSpeedParams) {
         if (!this.actx) return;
         this.lastAmbienceStep -= dt;
@@ -310,8 +314,10 @@ scene.background = currentSkyColor.clone();
 scene.fog = new THREE.FogExp2(currentFogColor.clone(), 0.008);
 
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(1.5, 3.5, 6);
-camera.lookAt(0, 1, -10);
+// Positioned higher and directly behind the killer
+camera.position.set(0, 3.5, 6.0);
+// Looking slightly downward to keep the sky at ~40% and show more track, perfectly centered
+camera.lookAt(0, 2.0, -10);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -527,6 +533,11 @@ scene.add(moonMesh);
 const playerLight = new THREE.PointLight(0xffaa55, 0.0, 30); // Warm torch (turned off for day mode)
 playerLight.position.set(0, 2.5, 2); // Placed slightly above and ahead
 
+// Add dedicated character rim/fill lights to make the girl pop out against the background
+const playerRimLight = new THREE.DirectionalLight(0xffffff, 2.0);
+playerRimLight.position.set(0, 3, 3); // Slightly above and in front of her to light her face/front
+const playerFillLight = new THREE.AmbientLight(0xffffff, 0.5); // Soft fill
+
 // --- PHYSICS INITIALIZATION ---
 // "Initialize 3D Physics first" - Simple custom kinematics & AABB engine
 const GRAVITY = -45;
@@ -563,6 +574,8 @@ class PhysicsEntity {
 // --- PLAYER SETUP ---
 const playerGroup = new THREE.Group();
 playerGroup.add(playerLight);
+playerGroup.add(playerRimLight);
+playerGroup.add(playerFillLight);
 scene.add(playerGroup);
 
 // --- PLAYER MODEL VIA GLTF LOADER ---
@@ -1320,13 +1333,17 @@ function animate() {
             }
         }
         // Transition Camera towards the character's back smoothly
-        camera.position.lerp(new THREE.Vector3(1.5, 3.5, 6), 5 * dt);
-        camera.lookAt(playerGroup.position);
+        camera.position.lerp(new THREE.Vector3(0, 3.5, 6.0), 5 * dt);
+        // Look ahead and slightly down for a good track presentation
+        const lookTarget = playerGroup.position.clone();
+        lookTarget.y += 2.0;
+        lookTarget.x = playerGroup.position.x * 0.5; // Follow lane partly
+        camera.lookAt(lookTarget);
 
         // Wait till camera is close enough to unlock the game movement logic!
-        if (camera.position.distanceTo(new THREE.Vector3(1.5, 3.5, 6)) < 0.5) {
+        if (camera.position.distanceTo(new THREE.Vector3(0, 3.5, 6.0)) < 0.5) {
             gameState = 'PLAYING';
-            camera.position.set(1.5, 3.5, 6);
+            camera.position.set(0, 3.5, 6.0);
         }
     }
 
@@ -1459,6 +1476,20 @@ function animate() {
             }
         }
     }
+
+    // Camera Logic
+    // Keep camera bobbing slightly with the run but look slightly downwards for a grounded 40% sky view
+    const bobOffset = Math.sin(clock.getElapsedTime() * gameSpeed * 0.3) * 0.1;
+    camera.position.x = playerGroup.position.x * 0.6; // Follow lane closely to keep character in view
+    camera.position.y = 3.5 + bobOffset;
+    camera.position.z = playerGroup.position.z + 6.0; // Distance backed up so Killer is visible!
+
+    // Look slightly down and straight ahead
+    const lookTarget = playerGroup.position.clone();
+    lookTarget.y += 2.0;
+    lookTarget.z -= 15;
+    lookTarget.x = playerGroup.position.x * 0.3; // Allow character to stay mostly centered
+    camera.lookAt(lookTarget);
 
     // Booster Logic & FOV mapping
     let targetFov = 70; // Static unless boosted
@@ -1651,11 +1682,14 @@ function animate() {
                 } else if (obj.isOutfit) {
                     hasShield = true;
                     outfitGroup.visible = true; // Transform applied!
+                    AudioEngine.playShield();
                 } else if (obj.isMagnet) {
                     magnetTimeLeft = MAGNET_TOTAL;
+                    AudioEngine.playMagnet();
                 } else if (obj.isBooster) {
                     boostTimeLeft = BOOST_TOTAL;
                     if (musicEnabled) { AudioEngine.playSpeedBoost(); }
+                    AudioEngine.playShield(); // Reuse powerup pickup sound
                 }
             } else {
                 // Obstacle Hit
@@ -1666,6 +1700,7 @@ function animate() {
                     // Consume Shield
                     hasShield = false;
                     outfitGroup.visible = false;
+                    AudioEngine.playHit();
 
                     // Flash player (I-frame flicker)
                     playerGroup.visible = false;
@@ -1677,6 +1712,7 @@ function animate() {
                 } else if (hitCooldown <= 0) {
                     mistakes++;
                     hitCooldown = hitCooldownTime;
+                    AudioEngine.playHit();
 
                     if (killerLungeAction && killerRunAction) {
                         killerLungeAction.reset().setLoop(THREE.LoopOnce).play();
@@ -1693,6 +1729,7 @@ function animate() {
                     if (mistakes >= 2) {
                         isGameOver = true;
                         gameState = 'GAMEOVER';
+                        AudioEngine.playGameOver();
 
                         // Set High Score
                         let bestDist = Math.max(highScore, Math.floor(distance));
