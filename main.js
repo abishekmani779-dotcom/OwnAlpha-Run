@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { generateTextures } from './src/texture_generator.js';
 
 // --- GAME LOGIC STATE ---
@@ -306,15 +309,29 @@ const scene = new THREE.Scene();
 scene.background = currentSkyColor.clone();
 scene.fog = new THREE.FogExp2(currentFogColor.clone(), 0.008);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
-camera.position.set(0, 4, 7);
+const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(1.5, 3.5, 6);
 camera.lookAt(0, 1, -10);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+const renderPass = new RenderPass(scene, camera);
+const bokehPass = new BokehPass(scene, camera, {
+    focus: 6.0,
+    aperture: 0.0001,
+    maxblur: 0.012,
+    width: window.innerWidth,
+    height: window.innerHeight
+});
+
+const composer = new EffectComposer(renderer);
+composer.addPass(renderPass);
+composer.addPass(bokehPass);
 
 // Lights
 const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
@@ -552,6 +569,7 @@ scene.add(playerGroup);
 let playerMixer;
 let killerMixer; // Add global mixer for killer constraint
 let playerRunAction; // Store global reference to animation clip
+let killerRunAction, killerIdleAction, killerLungeAction;
 const loader = new GLTFLoader();
 
 loader.load(
@@ -648,6 +666,10 @@ const killerLight = new THREE.PointLight(0xff0000, 3.0, 15);
 killerLight.position.set(0, 1.5, 0);
 killerGroup.add(killerLight);
 
+const killerRimLight = new THREE.DirectionalLight(0xaabbff, 3.0);
+killerRimLight.position.set(0, 5, 5); // Behind and above
+killerGroup.add(killerRimLight);
+
 loader.load(
     'models/Killer.glb',
     function (gltf) {
@@ -669,8 +691,8 @@ loader.load(
         const center = box.getCenter(new THREE.Vector3());
 
         if (size.y > 0) {
-            // Auto-scale to roughly 3.6 units tall (2x bigger)
-            const scaleFactor = 3.6 / size.y;
+            // Auto-scale to roughly 1.92 units tall (1.2x bigger than 1.6)
+            const scaleFactor = 1.92 / size.y;
             wrapper.scale.set(scaleFactor, scaleFactor, scaleFactor);
 
             // Fix his position offset! Because we rotated him, his center might be deep underground
@@ -704,6 +726,20 @@ loader.load(
         killerGroup.userData.model = wrapper;
 
         killerGroup.add(wrapper);
+
+        if (gltf.animations && gltf.animations.length > 0) {
+            killerMixer = new THREE.AnimationMixer(wrapper);
+            const findAnim = (names) => {
+                for (let n of names) { let c = THREE.AnimationClip.findByName(gltf.animations, n); if (c) return c; }
+                for (let c of gltf.animations) { for (let n of names) { if (c.name.toLowerCase().includes(n.toLowerCase())) return c; } }
+                return gltf.animations[0];
+            };
+            killerIdleAction = killerMixer.clipAction(findAnim(['Idle', 'Breathing']));
+            killerRunAction = killerMixer.clipAction(findAnim(['Run', 'Heavy', 'Monster']));
+            killerLungeAction = killerMixer.clipAction(findAnim(['Lunge', 'Attack', 'Jump']));
+
+            if (killerRunAction) killerRunAction.play(); // default
+        }
     }
 );
 
@@ -1253,7 +1289,7 @@ function animate() {
     const dt = clock.getDelta();
 
     if (isGameOver || isPaused || gameState === 'GAMEOVER') {
-        renderer.render(scene, camera);
+        composer.render();
         return;
     }
 
@@ -1266,19 +1302,31 @@ function animate() {
 
         // Keep running character physics visually but do not advance world
         if (playerMixer) { playerMixer.update(dt * 0.2); } // Slow idle idle running
-        renderer.render(scene, camera);
+        if (killerMixer) { killerMixer.update(dt * 0.2); } // Slow idle running
+        if (killerIdleAction && killerRunAction && !killerIdleAction.isRunning()) {
+            killerIdleAction.reset().play();
+            if (killerRunAction) killerRunAction.stop();
+            if (killerLungeAction) killerLungeAction.stop();
+        }
+        composer.render();
         return;
     }
 
     if (gameState === 'STARTING') {
+        if (killerRunAction && killerIdleAction && hitCooldown <= 0) {
+            if (!killerRunAction.isRunning()) {
+                killerRunAction.reset().play();
+                killerIdleAction.stop();
+            }
+        }
         // Transition Camera towards the character's back smoothly
-        camera.position.lerp(new THREE.Vector3(0, 4, 7), 5 * dt);
+        camera.position.lerp(new THREE.Vector3(1.5, 3.5, 6), 5 * dt);
         camera.lookAt(playerGroup.position);
 
         // Wait till camera is close enough to unlock the game movement logic!
-        if (camera.position.distanceTo(new THREE.Vector3(0, 4, 7)) < 0.5) {
+        if (camera.position.distanceTo(new THREE.Vector3(1.5, 3.5, 6)) < 0.5) {
             gameState = 'PLAYING';
-            camera.position.set(0, 4, 7);
+            camera.position.set(1.5, 3.5, 6);
         }
     }
 
@@ -1355,7 +1403,7 @@ function animate() {
     baseGameSpeed = 20 * spdMult;
 
     // Killer Logic: Closer visually if no shield, hidden if shield is active
-    const killerConstant = 6;
+    const killerConstant = 3;
     let targetKillerZ;
 
     if (hasShield) {
@@ -1374,7 +1422,11 @@ function animate() {
     killerGroup.position.x += (playerGroup.position.x - killerGroup.position.x) * 5 * dt;
 
     // Add custom running bobbing animation!
-    if (killerGroup.visible) {
+    if (killerMixer) {
+        // Built-in .glb animation matching current level speed
+        killerMixer.update(dt * (gameSpeed / 20));
+    } else if (killerGroup.visible) {
+        // Procedural fall back
         const t = clock.getElapsedTime() * gameSpeed * 0.6;
         const kBones = killerGroup.userData.bones;
         const kModel = killerGroup.userData.model;
@@ -1626,6 +1678,17 @@ function animate() {
                     mistakes++;
                     hitCooldown = hitCooldownTime;
 
+                    if (killerLungeAction && killerRunAction) {
+                        killerLungeAction.reset().setLoop(THREE.LoopOnce).play();
+                        killerRunAction.crossFadeTo(killerLungeAction, 0.1, true);
+                        setTimeout(() => {
+                            if (!isGameOver && killerRunAction && killerLungeAction) {
+                                killerRunAction.reset().play();
+                                killerLungeAction.crossFadeTo(killerRunAction, 0.2, true);
+                            }
+                        }, hitCooldownTime * 1000);
+                    }
+
                     // "A second hit results in a 'Caught' Game Over."
                     if (mistakes >= 2) {
                         isGameOver = true;
@@ -1669,7 +1732,9 @@ function animate() {
 
     updatePowerupsUI(dt);
 
-    renderer.render(scene, camera);
+    updatePowerupsUI(dt);
+
+    composer.render();
 }
 
 // Handle resize
@@ -1677,6 +1742,7 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
+    composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 animate();
