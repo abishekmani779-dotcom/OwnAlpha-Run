@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            background: #333;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2, 6);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+
+        const loader = new GLTFLoader();
+        let kMixer, gMixer;
+
+        // GIRL
+        loader.load('models/girl_gameready_anim.glb', gltf => {
+            const gModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(gModel);
+            const size = box.getSize(new THREE.Vector3());
+            const scaleFactor = 1.6 / size.y;
+            gModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            gModel.position.set(-1.5, 0, 0);
+            scene.add(gModel);
+
+            gMixer = new THREE.AnimationMixer(gModel);
+            const action = gMixer.clipAction(gltf.animations[0]);
+            action.play();
+        });
+
+        // KILLER
+        loader.load('models/Killer.glb', function (gltf) {
+            const kModel = gltf.scene;
+
+            // Replicate game logic exactly:
+            const scaleFactor = 2.4;
+            kModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            kModel.rotation.y = Math.PI;
+            kModel.position.y = 0;
+            kModel.position.x = 1.5;
+            scene.add(kModel);
+
+            if (gltf.animations && gltf.animations.length > 0) {
+                kMixer = new THREE.AnimationMixer(kModel);
+                const action = kMixer.clipAction(gltf.animations[0]);
+                action.play();
+            }
+
+            // Add reference grid
+            const gridHelper = new THREE.GridHelper(10, 10);
+            scene.add(gridHelper);
+
+            console.log("LOAD_COMPLETE");
+        });
+
+        const clock = new THREE.Clock();
+        const animate = function () {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (kMixer) kMixer.update(dt);
+            if (gMixer) gMixer.update(dt);
+            renderer.render(scene, camera);
+        };
+        animate();
+    </script>
+</body>
+
+</html>

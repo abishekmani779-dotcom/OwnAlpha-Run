@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        const loader = new GLTFLoader();
+        loader.load('models/Objects.glb', function (gltf) {
+            const names = [];
+            gltf.scene.traverse((child) => {
+                if (child.isMesh) {
+                    names.push(child.name);
+                }
+            });
+            console.log("MESHES_FOUND:", JSON.stringify(names));
+        });
+    </script>
+</body>
+
+</html>

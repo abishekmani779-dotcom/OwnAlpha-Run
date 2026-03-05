@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            background: #444;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2, 8);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        scene.add(new THREE.DirectionalLight(0xffffff, 2));
+        scene.add(new THREE.GridHelper(10, 10));
+
+        const loader = new GLTFLoader();
+        let kMixer, gMixer;
+
+        loader.load('models/Killer.glb', function (gltf) {
+            const kModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(kModel);
+            const size = box.getSize(new THREE.Vector3());
+            const scaleFactor = 1.6 / size.y;
+            kModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            kModel.position.set(1.5, 0, 0);
+            scene.add(kModel);
+
+            if (gltf.animations && gltf.animations.length > 0) {
+                kMixer = new THREE.AnimationMixer(kModel);
+                kMixer.clipAction(gltf.animations[0]).play();
+            }
+        });
+
+        loader.load('models/girl_gameready_anim.glb', function (gltf) {
+            const gModel = gltf.scene;
+            const box = new THREE.Box3().setFromObject(gModel);
+            const size = box.getSize(new THREE.Vector3());
+            const scaleFactor = 1.6 / size.y;
+            gModel.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            gModel.position.set(-1.5, 0, 0);
+            scene.add(gModel);
+
+            if (gltf.animations && gltf.animations.length > 0) {
+                gMixer = new THREE.AnimationMixer(gModel);
+                gMixer.clipAction(gltf.animations[0]).play();
+            }
+        });
+
+        const clock = new THREE.Clock();
+        const animate = function () {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (kMixer) kMixer.update(dt);
+            if (gMixer) gMixer.update(dt);
+            renderer.render(scene, camera);
+        };
+        animate();
+    </script>
+</body>
+
+</html>

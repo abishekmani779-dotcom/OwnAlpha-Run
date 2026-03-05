@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Endless Runner 3D</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <div id="ui-container">
+    <!-- GAME PLAY UI (Hidden on Menu) -->
+    <div id="gameplay-ui" style="display: none;">
+      <div id="top-left">Distance: <span id="distance">0</span> m</div>
+      <div id="top-right">Coins: <span id="coins">0</span></div>
+      <div id="powerups-container"
+        style="position: absolute; top: 60px; left: 20px; display: flex; flex-direction: column; gap: 12px; z-index: 10;">
+      </div>
+      <button id="pause-btn"
+        style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); font-size: 18px; padding: 10px 20px; z-index: 10; pointer-events: auto; background: rgba(0,0,0,0.5); color: white; border: 2px solid white; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase;">Pause</button>
+    </div>
+
+    <!-- START SCREEN (MAIN MENU) -->
+    <div id="start-screen" class="menu-overlay">
+      <div class="start-menu-content">
+        <!-- Logo -->
+        <div class="logo-container">
+          <h1 class="logo-text">OWNALPHA<br><span class="logo-text-run">RUN</span></h1>
+        </div>
+
+        <!-- Middle actions: How to play & Audio -->
+        <div class="menu-middle-row">
+          <div class="how-to-wrapper">
+            <div class="how-to-label top">HOW TO</div>
+            <button id="how-to-btn" class="how-to-btn-circle">?</button>
+            <div class="how-to-label bottom">PLAY</div>
+          </div>
+
+          <div class="audio-wrapper">
+            <div class="audio-headers-labels"><span>AUDIO PREFS</span></div>
+            <div class="audio-box">
+              <button id="toggle-sfx-btn" class="audio-row-btn">
+                <div class="audio-icon">🔊</div>
+                <div class="audio-toggle-state" id="sfx-state">ON <span class="audio-check">✔</span></div>
+              </button>
+              <button id="toggle-music-btn" class="audio-row-btn">
+                <div class="audio-icon">🎵</div>
+                <div class="audio-toggle-state" id="music-state">ON <span class="audio-check">✔</span></div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <button id="play-btn" class="tap-to-play-btn pulse-anim">TAP TO PLAY</button>
+
+
+      </div>
+    </div>
+
+    <!-- HOW TO PLAY OVERLAY -->
+    <div id="how-to-overlay" class="menu-overlay blur-bg" style="display: none;">
+      <div class="menu-content">
+        <h2>CONTROLS</h2>
+        <div class="controls-grid">
+          <div class="control-item"><span>⬆️</span>
+            <p>Swipe Up / W<br><small>JUMP</small></p>
+          </div>
+          <div class="control-item"><span>⬇️</span>
+            <p>Swipe Down / S<br><small>SLIDE</small></p>
+          </div>
+          <div class="control-item"><span>⬅️</span>
+            <p>Swipe Left / A<br><small>MOVE LEFT</small></p>
+          </div>
+          <div class="control-item"><span>➡️</span>
+            <p>Swipe Right / D<br><small>MOVE RIGHT</small></p>
+          </div>
+        </div>
+        <button id="close-how-to-btn" class="secondary-btn">Got It</button>
+      </div>
+    </div>
+
+    <!-- GAME OVER SCREEN -->
+    <div id="game-over" class="menu-overlay popup-bg" style="display: none;">
+      <div class="popup-box slide-up">
+        <h2 class="popup-title caught">You were caught!</h2>
+
+        <div class="popup-stats-card">
+          <div class="stat-row">
+            <span class="stat-label">Distance:</span>
+            <span class="stat-value"><span id="final-distance">0</span> <span class="stat-unit">m</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Coins:</span>
+            <span class="stat-value" id="final-coins">0</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat-row gold-row">
+            <span class="stat-label">Best Distance:</span>
+            <span class="stat-value"><span id="high-score" class="white-val">0</span> <span
+                class="stat-unit">m</span></span>
+          </div>
+        </div>
+
+        <button id="restart-btn" class="popup-primary-btn">RESTART</button>
+        <button id="home-btn" class="popup-secondary-btn">MAIN MENU</button>
+      </div>
+    </div>
+
+    <!-- PAUSE SCREEN -->
+    <div id="pause-screen" class="menu-overlay popup-bg" style="display: none;">
+      <div class="popup-box slide-up">
+        <h2 class="popup-title paused-title">Game Paused</h2>
+
+        <div class="popup-stats-card">
+          <div class="stat-row">
+            <span class="stat-label">Distance:</span>
+            <span class="stat-value"><span id="pause-distance">0</span> <span class="stat-unit">m</span></span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Coins:</span>
+            <span class="stat-value" id="pause-coins">0</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="popup-audio-row">
+            <button id="pause-sfx-btn" class="popup-audio-btn">
+              <span class="popup-audio-icon">🔊</span>
+              <span class="popup-audio-state" id="pause-sfx-state">ON <span class="popup-audio-check">✔</span></span>
+            </button>
+            <button id="pause-music-btn" class="popup-audio-btn">
+              <span class="popup-audio-icon">🎵</span>
+              <span class="popup-audio-state" id="pause-music-state">ON <span class="popup-audio-check">✔</span></span>
+            </button>
+          </div>
+        </div>
+
+        <button id="resume-btn" class="popup-primary-btn">RESUME</button>
+        <button id="pause-home-btn" class="popup-secondary-btn">MAIN MENU</button>
+      </div>
+    </div>
+    <div id="speed-level-alert"
+      style="display:none; position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%); color: #fff; font-size: 50px; font-weight: bold; text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff; text-align: center; pointer-events: none; z-index: 20;">
+      SPEED LEVEL UP!</div>
+  </div>
+
+  <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+  <script type="module" src="./main.js"></script>
+
+  <!-- Background Music Element -->
+  <audio id="bgmAudio" loop preload="auto">
+    <!-- Drop your music file named 'music.mp3' in the public/ folder or alongside index.html -->
+    <source src="./music.mp3" type="audio/mpeg">
+  </audio>
+</body>
+
+</html>

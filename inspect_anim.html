@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        const loader = new GLTFLoader();
+        loader.load('models/girl_gameready_anim.glb', function (gltf) {
+            console.log("DURATION:", gltf.animations[0].duration);
+            console.log("TRACKS:", gltf.animations[0].tracks.length);
+        });
+    </script>
+</body>
+
+</html>

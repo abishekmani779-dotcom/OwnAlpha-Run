@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        const loader = new GLTFLoader();
+        loader.load('models/Objects.glb', function (gltf) {
+            let possibleTrees = [];
+            gltf.scene.traverse((child) => {
+                if(child.isMesh) {
+                    const box = new THREE.Box3().setFromObject(child);
+                    const size = box.getSize(new THREE.Vector3());
+                    if (size.y > size.x && size.y > size.z * 1.5 && size.y > 10) { 
+                       possibleTrees.push({name: child.name, h: size.y.toFixed(2), w: size.x.toFixed(2)});
+                    }
+                }
+            });
+            console.log("POSSIBLE TREES:", JSON.stringify(possibleTrees));
+        });
+    </script>
+</body>
+</html>

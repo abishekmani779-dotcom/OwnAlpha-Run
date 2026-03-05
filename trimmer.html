@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head><style>body { margin: 0; background: #333; color: white; display: flex; flex-wrap: wrap; } div.frame { margin: 2px; text-align: center; } </style></head>
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const loader = new GLTFLoader();
+        loader.load('models/girl_gameready_anim.glb', function(gltf) {
+            const anim = gltf.animations[0];
+            const duration = anim.duration;
+            console.log("Loaded, duration:", duration);
+
+            for (let i = 0; i < Math.ceil(duration); i++) {
+                const div = document.createElement('div');
+                div.className = 'frame';
+                div.innerHTML = `<div>Sec ${i}</div>`;
+                document.body.appendChild(div);
+
+                const renderer = new THREE.WebGLRenderer({alpha:true, preserveDrawingBuffer: true});
+                renderer.setSize(120, 120);
+                div.appendChild(renderer.domElement);
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+                camera.position.set(2, 1, 3);
+                camera.lookAt(0, 1, 0);
+
+                scene.add(new THREE.DirectionalLight(0xffffff, 2));
+                scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+                const clone = gltf.scene.clone();
+                scene.add(clone);
+
+                const mixer = new THREE.AnimationMixer(clone);
+                const action = mixer.clipAction(anim);
+                action.play();
+                
+                // Force update to specific time
+                mixer.setTime(i);
+                
+                // Render
+                setTimeout(() => renderer.render(scene, camera), 100);
+            }
+            console.log("Render complete");
+        });
+    </script>
+</body>
+</html>

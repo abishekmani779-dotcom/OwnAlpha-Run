@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            background: #333;
+            color: white;
+            display: flex;
+            flex-wrap: wrap;
+            font-family: sans-serif;
+        }
+
+        .card {
+            margin: 10px;
+            text-align: center;
+            background: #444;
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        canvas {
+            background: #222;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const loader = new GLTFLoader();
+        loader.load('models/Objects.glb', function (gltf) {
+            const meshes = [];
+            gltf.scene.traverse((child) => {
+                // Ensure we only grab actual visible root pieces instead of hundreds of submeshes
+                if (child.isMesh && child.parent.type === "Scene" || child.parent.name === "RootNode" || child.parent.name.includes("Scene")) {
+                    meshes.push(child);
+                } else if (child.isGroup || child.type === "Object3D") {
+                    let hasMesh = false;
+                    child.traverse(c => { if (c.isMesh) hasMesh = true; });
+                    if (hasMesh && child.parent.type === "Scene") meshes.push(child);
+                }
+            });
+
+            // Fallback if the tree is weird
+            let targets = meshes.length > 0 ? meshes : gltf.scene.children;
+
+            targets.forEach((obj, i) => {
+                if (obj.type === "AmbientLight" || obj.type === "DirectionalLight") return;
+
+                const card = document.createElement('div');
+                card.className = "card";
+                card.innerHTML = `<div>${obj.name || 'Item ' + i}</div>`;
+                document.body.appendChild(card);
+
+                const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+                renderer.setSize(150, 150);
+                card.appendChild(renderer.domElement);
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 100);
+
+                // Box scaling
+                const box = new THREE.Box3().setFromObject(obj);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const fov = camera.fov * (Math.PI / 180);
+                let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+                if (isNaN(cameraZ) || cameraZ === 0) cameraZ = 5;
+
+                camera.position.set(0, size.y / 2, cameraZ);
+                camera.lookAt(0, 0, 0);
+
+                scene.add(new THREE.DirectionalLight(0xffffff, 2));
+                scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+                const clone = obj.clone();
+                clone.position.sub(center); // center it
+                scene.add(clone);
+
+                // Spin it slowly
+                const animate = function () {
+                    requestAnimationFrame(animate);
+                    clone.rotation.y += 0.02;
+                    renderer.render(scene, camera);
+                };
+                animate();
+            });
+        });
+    </script>
+</body>
+
+</html>

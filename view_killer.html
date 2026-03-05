@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            margin: 0;
+            background: #333;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 2, 5);
+        camera.lookAt(0, 1, 0);
+
+        const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(5, 5, 5);
+        scene.add(dirLight);
+
+        const loader = new GLTFLoader();
+        let mixer;
+
+        loader.load('models/Killer.glb', function (gltf) {
+            const model = gltf.scene;
+
+            // Replicate game logic exactly:
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const scaleFactor = 0.45 / size.y;
+            model.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            model.rotation.y = Math.PI;
+            model.position.y = 0;
+
+            scene.add(model);
+
+            if (gltf.animations && gltf.animations.length > 0) {
+                mixer = new THREE.AnimationMixer(model);
+                const action = mixer.clipAction(gltf.animations[0]);
+                action.play();
+            }
+
+            // Add reference grid
+            const gridHelper = new THREE.GridHelper(10, 10);
+            scene.add(gridHelper);
+
+            // Add a reference cube for 1.8 units tall
+            const refGeo = new THREE.BoxGeometry(0.5, 1.8, 0.5);
+            const refMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true });
+            const refMesh = new THREE.Mesh(refGeo, refMat);
+            refMesh.position.set(-1.5, 0.9, 0);
+            scene.add(refMesh);
+
+            console.log("LOAD_COMPLETE");
+        });
+
+        const clock = new THREE.Clock();
+        const animate = function () {
+            requestAnimationFrame(animate);
+            const dt = clock.getDelta();
+            if (mixer) mixer.update(dt);
+            renderer.render(scene, camera);
+        };
+        animate();
+    </script>
+</body>
+
+</html>
